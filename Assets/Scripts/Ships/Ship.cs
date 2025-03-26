@@ -21,12 +21,15 @@ public class Ship : MonoBehaviour
     private Transform currentTarget;
     private bool isFiring;
 
-    ResourceManager resourceManager;
-
     void Start()
     {
         SetShipStats();
-        resourceManager = FindObjectOfType<ResourceManager>();
+    }
+
+    public void SetupShip(Transform target, bool isPlayer)
+    {
+        targetPlanet = target;
+        isPlayerShip = isPlayer;
     }
 
     void Update()
@@ -149,7 +152,6 @@ public class Ship : MonoBehaviour
 
     void DrawLaserBeam(Vector3 targetPosition)
     {
-        // Simple visual laser effect (line renderer)
         GameObject laser = new GameObject("LaserBeam");
         LineRenderer lineRenderer = laser.AddComponent<LineRenderer>();
 
@@ -159,12 +161,10 @@ public class Ship : MonoBehaviour
         lineRenderer.SetPosition(0, transform.position);
         lineRenderer.SetPosition(1, targetPosition);
 
-        // Color setup (optional)
         lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
         lineRenderer.startColor = Color.cyan;
         lineRenderer.endColor = Color.blue;
 
-        // Destroy laser beam after a short time
         Destroy(laser, 0.1f);
     }
 
@@ -173,32 +173,7 @@ public class Ship : MonoBehaviour
         currentHP -= amount;
         if (currentHP <= 0)
         {
-            DecrementShipCount();
             Destroy(gameObject);
         }
     }
-
-    void DecrementShipCount()
-    {
-        if (resourceManager == null)
-        {
-            resourceManager = FindObjectOfType<ResourceManager>();
-            if (resourceManager == null)
-            {
-                Debug.LogWarning("ResourceManager not found!");
-                return;
-            }
-        }
-
-        if (isPlayerShip)
-        {
-            resourceManager.playerTotalShips--;
-        }
-        else
-        {
-            resourceManager.enemyTotalShips--;
-        }
-    }
-
-
 }
