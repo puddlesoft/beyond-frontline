@@ -5,8 +5,10 @@ public class Ship : MonoBehaviour
 {
     public enum ShipType { Light, Heavy, Drone }
     public ShipType shipType;
-
     public Transform targetPlanet;
+    private PlayerResourceSystem playerSystem;
+    public EnemyResourceSystem enemySystem;
+
     public float moveSpeed = 2f;
 
     public float detectRange = 4f;
@@ -21,29 +23,49 @@ public class Ship : MonoBehaviour
     private Transform currentTarget;
     private bool isFiring;
 
-    ResourceManager resourceManager;
-
     void Start()
     {
         SetShipStats();
-        resourceManager = FindObjectOfType<ResourceManager>();
     }
+
+    public void SetupShip(Transform target, bool isPlayer, PlayerResourceSystem player = null, EnemyResourceSystem enemy = null)
+    {
+        targetPlanet = target;
+        isPlayerShip = isPlayer;
+        playerSystem = player;
+        enemySystem = enemy;
+    }
+
 
     void Update()
     {
         if (currentTarget == null || Vector3.Distance(transform.position, currentTarget.position) > detectRange)
-            FindTarget();
-
-        if (currentTarget != null && Vector3.Distance(transform.position, currentTarget.position) <= attackRange)
         {
-            if (!isFiring)
-                StartCoroutine(FireAtTarget());
+            FindTarget();
+        }
+
+        if (currentTarget != null)
+        {
+            float distanceToTarget = Vector3.Distance(transform.position, currentTarget.position);
+
+            if (distanceToTarget <= attackRange)
+            {
+                if (!isFiring)
+                {
+                    StartCoroutine(FireAtTarget());
+                }
+            }
+            else
+            {
+                MoveTowards(currentTarget.position); // <-- Important line added
+            }
         }
         else if (targetPlanet != null)
         {
             MoveTowards(targetPlanet.position);
         }
     }
+
 
     void SetShipStats()
     {
@@ -72,33 +94,53 @@ public class Ship : MonoBehaviour
     void FindTarget()
     {
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, detectRange);
-        Transform preferredTarget = null;
-        float closestDistance = Mathf.Infinity;
+        Transform closestShip = null;
+        Transform closestTurret = null;
+        float closestShipDist = Mathf.Infinity;
+        float closestTurretDist = Mathf.Infinity;
 
         foreach (Collider2D hit in hits)
         {
             Ship enemyShip = hit.GetComponent<Ship>();
             if (enemyShip != null && enemyShip.targetPlanet != targetPlanet)
             {
-                float distance = Vector3.Distance(transform.position, enemyShip.transform.position);
-                if (preferredTarget == null || IsPreferredTarget(enemyShip))
+                float dist = Vector3.Distance(transform.position, enemyShip.transform.position);
+                if (dist < closestShipDist)
                 {
-                    if (distance < closestDistance)
+                    closestShip = enemyShip.transform;
+                    closestShipDist = dist;
+                }
+                continue;
+            }
+
+            DefenseTurret turret = hit.GetComponent<DefenseTurret>();
+            if (turret != null && turret.gameObject.activeInHierarchy)
+            {
+                if (turret.isPlayerTurret != isPlayerShip)
+                {
+                    float dist = Vector3.Distance(transform.position, turret.transform.position);
+                    if (dist < closestTurretDist)
                     {
-                        preferredTarget = enemyShip.transform;
-                        closestDistance = distance;
+                        closestTurret = turret.transform;
+                        closestTurretDist = dist;
                     }
                 }
             }
-        }
-        currentTarget = preferredTarget;
-    }
 
-    bool IsPreferredTarget(Ship enemyShip)
-    {
-        return (shipType == ShipType.Light && enemyShip.shipType == ShipType.Heavy) ||
-               (shipType == ShipType.Heavy && enemyShip.shipType == ShipType.Drone) ||
-               (shipType == ShipType.Drone && enemyShip.shipType == ShipType.Light);
+        }
+
+        if (closestShip != null)
+        {
+            currentTarget = closestShip;
+        }
+        else if (closestTurret != null)
+        {
+            currentTarget = closestTurret;
+        }
+        else
+        {
+            currentTarget = null;
+        }
     }
 
     IEnumerator FireAtTarget()
@@ -119,19 +161,16 @@ public class Ship : MonoBehaviour
         if (shipType == ShipType.Light)
         {
             // Hitscan laser logic
-            Ship enemy = target.GetComponent<Ship>();
-            if (enemy != null)
+            if (target.TryGetComponent<Ship>(out Ship enemyShip))
             {
-                enemy.TakeDamage(GetDamageAgainst(shipType, enemy.shipType));
+                enemyShip.TakeDamage(GetDamageAgainst(shipType, enemyShip.shipType));
                 DrawLaserBeam(target.position);
             }
-        }
-        else
-        {
-            // Projectile logic for Heavy and Drone
-            GameObject proj = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
-            Projectile projectile = proj.GetComponent<Projectile>();
-            projectile.SetTarget(target, shipType);
+            else if (target.TryGetComponent<DefenseTurret>(out DefenseTurret turret))
+            {
+                turret.TakeDamage(GetDamageAgainst(shipType, ShipType.Heavy)); // treat as heavy target
+                DrawLaserBeam(target.position);
+            }
         }
     }
 
@@ -149,7 +188,6 @@ public class Ship : MonoBehaviour
 
     void DrawLaserBeam(Vector3 targetPosition)
     {
-        // Simple visual laser effect (line renderer)
         GameObject laser = new GameObject("LaserBeam");
         LineRenderer lineRenderer = laser.AddComponent<LineRenderer>();
 
@@ -159,46 +197,28 @@ public class Ship : MonoBehaviour
         lineRenderer.SetPosition(0, transform.position);
         lineRenderer.SetPosition(1, targetPosition);
 
-        // Color setup (optional)
         lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
         lineRenderer.startColor = Color.cyan;
         lineRenderer.endColor = Color.blue;
 
-        // Destroy laser beam after a short time
         Destroy(laser, 0.1f);
     }
 
     public void TakeDamage(float amount)
+{
+    currentHP -= amount;
+    if (currentHP <= 0)
     {
-        currentHP -= amount;
-        if (currentHP <= 0)
+        if (isPlayerShip && playerSystem != null)
         {
-            DecrementShipCount();
-            Destroy(gameObject);
+            playerSystem.DecrementShipCount();
         }
+        else if (!isPlayerShip && enemySystem != null)
+        {
+            enemySystem.DecrementShipCount();
+        }
+
+        Destroy(gameObject);
     }
-
-    void DecrementShipCount()
-    {
-        if (resourceManager == null)
-        {
-            resourceManager = FindObjectOfType<ResourceManager>();
-            if (resourceManager == null)
-            {
-                Debug.LogWarning("ResourceManager not found!");
-                return;
-            }
-        }
-
-        if (isPlayerShip)
-        {
-            resourceManager.playerTotalShips--;
-        }
-        else
-        {
-            resourceManager.enemyTotalShips--;
-        }
-    }
-
-
+}
 }

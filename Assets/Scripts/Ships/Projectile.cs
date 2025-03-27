@@ -6,10 +6,18 @@ public class Projectile : MonoBehaviour
     public float damage;
     private Transform target;
 
-    public void SetTarget(Transform tgt, Ship.ShipType shooterType)
+    private Ship.ShipType shooterType;
+
+    public void SetTarget(Transform targetTransform, Ship.ShipType type)
     {
-        target = tgt;
-        damage = GetDamageAgainst(shooterType, tgt.GetComponent<Ship>().shipType);
+        target = targetTransform;
+        shooterType = type;
+
+        Ship targetShip = target?.GetComponent<Ship>();
+        if (targetShip != null)
+        {
+            damage = GetDamageAgainst(shooterType, targetShip.shipType);
+        }
     }
 
     void Update()
@@ -24,7 +32,11 @@ public class Projectile : MonoBehaviour
 
         if (Vector3.Distance(transform.position, target.position) < 0.1f)
         {
-            target.GetComponent<Ship>().TakeDamage(damage);
+            Ship ship = target.GetComponent<Ship>();
+            if (ship != null)
+            {
+                ship.TakeDamage(damage);
+            }
             Destroy(gameObject);
         }
     }
