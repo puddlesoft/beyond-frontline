@@ -12,7 +12,6 @@ public class BuildingPlacer : MonoBehaviour
 
     private float minRange;
     private float maxRange;
-    private bool keepPlacing = false;
 
     private GameObject ghostInstance;
     private BuildingType currentType;
@@ -60,7 +59,7 @@ public class BuildingPlacer : MonoBehaviour
         // Cancel placement when Shift is released and mouse button is up
         if ((Input.GetKeyUp(KeyCode.LeftShift) || Input.GetKeyUp(KeyCode.RightShift)) && ghostInstance != null)
         {
-            if (!Input.GetMouseButton(0)) // avoid canceling mid-click
+            if (!Input.GetMouseButton(0))
             {
                 Destroy(ghostInstance);
                 Destroy(ringRenderer.gameObject);

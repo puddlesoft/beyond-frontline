@@ -7,8 +7,7 @@ public class DefenseTurret : MonoBehaviour
     public float range = 3.5f;
     public LayerMask targetLayerMask;
     public float health = 100f;
-
-    public bool isPlayerTurret;
+    public bool isPlayerTurret = true;
 
     private float fireTimer = 0f;
     private Transform currentTarget;
@@ -29,6 +28,11 @@ public class DefenseTurret : MonoBehaviour
         }
     }
 
+    public bool IsPlayerTurret()
+    {
+        return isPlayerTurret;
+    }
+
     void FindTarget()
     {
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, range, targetLayerMask);
@@ -39,9 +43,9 @@ public class DefenseTurret : MonoBehaviour
         foreach (Collider2D hit in hits)
         {
             Ship ship = hit.GetComponent<Ship>();
-            if (ship != null && ship.isPlayerShip != isPlayerTurret) // Only target enemies
+            if (ship != null && ship.isPlayerShip != isPlayerTurret)
             {
-                float dist = Vector3.Distance(transform.position, hit.transform.position);
+                float dist = Vector3.Distance(transform.position, ship.transform.position);
                 if (dist < closestDist)
                 {
                     closestDist = dist;
@@ -59,7 +63,7 @@ public class DefenseTurret : MonoBehaviour
         {
             GameObject proj = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
             Projectile projectile = proj.GetComponent<Projectile>();
-            projectile.SetTarget(currentTarget, Ship.ShipType.Heavy); // Can be more dynamic later
+            projectile.SetTarget(currentTarget, Ship.ShipType.Heavy, !isPlayerTurret);
         }
     }
 
