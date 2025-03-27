@@ -19,7 +19,11 @@ public class Shipyard : MonoBehaviour
         playerSystem = system;
         targetPlanet = enemyPlanet;
         buildTimer = buildInterval;
+
+        playerSystem.RegisterShipyard(shipyardType);
     }
+
+
 
     void Update()
     {
@@ -40,7 +44,7 @@ public class Shipyard : MonoBehaviour
     void SpawnShip()
     {
         GameObject ship = Instantiate(shipPrefab, transform.position, Quaternion.identity);
-        ship.GetComponent<Ship>().SetupShip(targetPlanet, true);
+        ship.GetComponent<Ship>().SetupShip(targetPlanet, true, playerSystem);
         playerSystem.IncrementShipCount();
     }
 }

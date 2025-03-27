@@ -1,52 +1,114 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class BuildingPlacer : MonoBehaviour
 {
-    public Transform planetPlayer;
-    public float orbitMin = 2f;
-    public float orbitMax = 4f;
+    public enum BuildingType { Shipyard, Defense }
 
-    private GameObject preview;
-    private GameObject currentPrefab;
-    private bool placing;
+    public GameObject ghostPrefab;
+    public Transform planet;
+    public Material validMaterial;
+    public Material invalidMaterial;
 
-    public PlayerResourceSystem playerSystem;
+    private float minRange;
+    private float maxRange;
+    private bool keepPlacing = false;
+
+    private GameObject ghostInstance;
+    private BuildingType currentType;
+    private GameObject actualBuildingPrefab;
+    private PlayerResourceSystem playerSystem;
+    private LineRenderer ringRenderer;
 
     void Update()
     {
-        if (!placing || currentPrefab == null) return;
+        if (ghostInstance == null) return;
 
-        Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        mouseWorld.z = 0;
-        preview.transform.position = mouseWorld;
+        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        mousePos.z = 0;
+        ghostInstance.transform.position = mousePos;
 
-        if (Input.GetMouseButtonDown(0))
+        float distance = Vector3.Distance(mousePos, planet.position);
+        bool valid = distance >= minRange && distance <= maxRange && !EventSystem.current.IsPointerOverGameObject();
+
+        SpriteRenderer ghostSprite = ghostInstance.GetComponent<SpriteRenderer>();
+        ghostSprite.material = valid ? validMaterial : invalidMaterial;
+
+        if (Input.GetMouseButtonDown(0) && valid)
         {
-            float dist = Vector3.Distance(mouseWorld, planetPlayer.position);
-            if (dist >= orbitMin && dist <= orbitMax)
+            GameObject built = Instantiate(actualBuildingPrefab, mousePos, Quaternion.identity);
+
+            if (currentType == BuildingType.Shipyard)
             {
-                GameObject final = Instantiate(currentPrefab, mouseWorld, Quaternion.identity);
-                var shipyard = final.GetComponent<Shipyard>();
-                shipyard.Initialize(playerSystem, playerSystem.enemyPlanet);
-                placing = false;
-                Destroy(preview);
+                Shipyard yard = built.GetComponent<Shipyard>();
+                yard.Initialize(playerSystem, playerSystem.enemyPlanet);
+            }
+
+            bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+
+            if (!shiftHeld)
+            {
+                Destroy(ghostInstance);
+                Destroy(ringRenderer.gameObject);
             }
             else
             {
-                Debug.Log("Must place between 2–4 units from planet.");
+                ghostInstance.transform.position = Vector3.zero; // reset for clean placement
             }
         }
-    }
 
-    public void StartPlacing(GameObject prefab)
-    {
-        if (placing && preview != null)
+        // Cancel placement when Shift is released and mouse button is up
+        if ((Input.GetKeyUp(KeyCode.LeftShift) || Input.GetKeyUp(KeyCode.RightShift)) && ghostInstance != null)
         {
-            Destroy(preview);
+            if (!Input.GetMouseButton(0)) // avoid canceling mid-click
+            {
+                Destroy(ghostInstance);
+                Destroy(ringRenderer.gameObject);
+            }
         }
 
-        currentPrefab = prefab;
-        preview = Instantiate(prefab);
-        placing = true;
+
+    }
+
+    public void StartPlacing(GameObject prefab, PlayerResourceSystem player, BuildingType type)
+    {
+        currentType = type;
+        actualBuildingPrefab = prefab;
+        playerSystem = player;
+
+        minRange = type == BuildingType.Shipyard ? 0.25f : 2.5f;
+        maxRange = type == BuildingType.Shipyard ? 2f : 4.5f;
+
+        ghostInstance = Instantiate(ghostPrefab);
+        SpriteRenderer sourceRenderer = prefab.GetComponentInChildren<SpriteRenderer>();
+        SpriteRenderer ghostRenderer = ghostInstance.GetComponent<SpriteRenderer>();
+
+        if (sourceRenderer != null && ghostRenderer != null)
+        {
+            ghostRenderer.sprite = sourceRenderer.sprite;
+        }
+
+        ringRenderer = CreateRing(planet.position, maxRange);
+    }
+
+    LineRenderer CreateRing(Vector3 center, float radius)
+    {
+        GameObject ring = new GameObject("PlacementRing");
+        LineRenderer lr = ring.AddComponent<LineRenderer>();
+        lr.positionCount = 361;
+        lr.loop = true;
+        lr.startWidth = 0.02f;
+        lr.endWidth = 0.02f;
+        lr.useWorldSpace = true;
+        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.startColor = lr.endColor = Color.white;
+
+        for (int i = 0; i < 361; i++)
+        {
+            float rad = i * Mathf.Deg2Rad;
+            lr.SetPosition(i, center + new Vector3(Mathf.Cos(rad), Mathf.Sin(rad)) * radius);
+        }
+
+        return lr;
     }
 }

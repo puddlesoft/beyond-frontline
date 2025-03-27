@@ -58,7 +58,12 @@ public class EnemyResourceSystem : MonoBehaviour
         metalTubes -= tubes;
         wiring -= wires;
         circuits -= circs;
-        Instantiate(prefab, RandomOrbit(planet), Quaternion.identity).GetComponent<Ship>().SetupShip(targetPlanet, false);
+
+        GameObject shipObj = Instantiate(prefab, RandomOrbit(planet), Quaternion.identity);
+        Ship ship = shipObj.GetComponent<Ship>();
+        ship.SetupShip(targetPlanet, false, null, this);         // Mark as enemy
+        ship.enemySystem = this;                     // Hook for count decrementing
+
         TotalShips++;
     }
 
@@ -66,5 +71,10 @@ public class EnemyResourceSystem : MonoBehaviour
     {
         float angle = Random.Range(0f, Mathf.PI * 2);
         return center.position + new Vector3(radius * Mathf.Cos(angle), radius * Mathf.Sin(angle), 0);
+    }
+
+    public void DecrementShipCount()
+    {
+        TotalShips = Mathf.Max(0, TotalShips - 1);
     }
 }
