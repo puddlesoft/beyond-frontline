@@ -7,17 +7,21 @@ public class Projectile : MonoBehaviour
     private Transform target;
 
     private Ship.ShipType shooterType;
+    private bool isPlayerProjectile;
 
-    public void SetTarget(Transform targetTransform, Ship.ShipType type)
+    public void SetTarget(Transform targetTransform, Ship.ShipType type, bool isPlayer)
     {
         target = targetTransform;
         shooterType = type;
+        isPlayerProjectile = isPlayer;
 
         Ship targetShip = target?.GetComponent<Ship>();
         if (targetShip != null)
         {
             damage = GetDamageAgainst(shooterType, targetShip.shipType);
         }
+
+        TintBasedOnOwnership();
     }
 
     void Update()
@@ -51,5 +55,13 @@ public class Projectile : MonoBehaviour
             return targetType == Ship.ShipType.Light ? 35 : 15;
 
         return 10;
+    }
+
+    void TintBasedOnOwnership()
+    {
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr == null) return;
+
+        sr.color = isPlayerProjectile ? Color.cyan : Color.red;
     }
 }

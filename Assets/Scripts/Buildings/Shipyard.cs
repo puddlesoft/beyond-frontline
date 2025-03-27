@@ -13,38 +13,94 @@ public class Shipyard : MonoBehaviour
     public Transform targetPlanet;
 
     private PlayerResourceSystem playerSystem;
+    private EnemyResourceSystem enemySystem;
+    private bool isPlayer = true;
 
-    public void Initialize(PlayerResourceSystem system, Transform enemyPlanet)
+    public void Initialize(PlayerResourceSystem system, Transform enemyPlanet, bool isPlayerShip = true, EnemyResourceSystem enemy = null)
     {
-        playerSystem = system;
         targetPlanet = enemyPlanet;
+        playerSystem = system;
+        enemySystem = enemy;
+        isPlayer = isPlayerShip;
         buildTimer = buildInterval;
 
-        playerSystem.RegisterShipyard(shipyardType);
+        if (isPlayer && playerSystem != null)
+        {
+            playerSystem.RegisterShipyard(shipyardType);
+        }
     }
-
-
 
     void Update()
     {
-        if (playerSystem == null) return;
-
         buildTimer -= Time.deltaTime;
-        if (buildTimer <= 0)
+        if (buildTimer > 0f) return;
+
+        if (isPlayer)
         {
-            if (playerSystem.CanAffordShip(shipyardType))
+            if (playerSystem != null && playerSystem.CanAffordShip(shipyardType))
             {
                 playerSystem.PayForShip(shipyardType);
-                SpawnShip();
+                SpawnShip(true);
+                buildTimer = buildInterval;
+            }
+        }
+        else
+        {
+            if (enemySystem != null && CanEnemyAfford())
+            {
+                PayEnemyCost();
+                SpawnShip(false);
                 buildTimer = buildInterval;
             }
         }
     }
 
-    void SpawnShip()
+    void SpawnShip(bool isPlayerShip)
     {
         GameObject ship = Instantiate(shipPrefab, transform.position, Quaternion.identity);
-        ship.GetComponent<Ship>().SetupShip(targetPlanet, true, playerSystem);
-        playerSystem.IncrementShipCount();
+        ship.GetComponent<Ship>().SetupShip(targetPlanet, isPlayerShip, playerSystem, enemySystem);
+
+        if (isPlayerShip && playerSystem != null)
+        {
+            playerSystem.IncrementShipCount();
+        }
+        else if (!isPlayerShip && enemySystem != null)
+        {
+            enemySystem.IncrementShipCount();
+        }
+    }
+
+    bool CanEnemyAfford()
+    {
+        switch (shipyardType)
+        {
+            case ShipyardType.Light:
+                return enemySystem.metalTubes >= 5 && enemySystem.wiring >= 2;
+            case ShipyardType.Heavy:
+                return enemySystem.metalTubes >= 10 && enemySystem.circuits >= 5;
+            case ShipyardType.Drone:
+                return enemySystem.wiring >= 4 && enemySystem.circuits >= 4;
+            default:
+                return false;
+        }
+    }
+
+    void PayEnemyCost()
+    {
+        switch (shipyardType)
+        {
+            case ShipyardType.Light:
+                enemySystem.metalTubes -= 5;
+                enemySystem.wiring -= 2;
+                break;
+            case ShipyardType.Heavy:
+                enemySystem.metalTubes -= 10;
+                enemySystem.circuits -= 5;
+                break;
+            case ShipyardType.Drone:
+                enemySystem.wiring -= 4;
+                enemySystem.circuits -= 4;
+                break;
+        }
     }
 }
