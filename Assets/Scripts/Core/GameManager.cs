@@ -10,15 +10,17 @@ public class GameManager : MonoBehaviour
     [Header("UI")]
     public TextMeshProUGUI playerShipCountText;
     public TextMeshProUGUI enemyShipCountText;
+    public ShipProductionManager productionManager;
 
     void Update()
     {
         playerSystem.Tick();
         enemySystem.Tick();
 
+        productionManager?.Tick(playerSystem, enemySystem);
+
         UpdateShipCounts();
     }
-
     void UpdateShipCounts()
     {
         if (playerShipCountText != null)

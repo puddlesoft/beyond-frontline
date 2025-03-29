@@ -19,10 +19,32 @@ public class Ship : MonoBehaviour
 
     private ShipMovement movement;
     private ShipCombat combat;
+    private ShipStateMachine stateMachine;
+    private bool isInitialized = false;
 
     public void SetEnemySystem(EnemyResourceSystem system)
     {
         enemySystem = system;
+    }
+
+    void Start()
+    {
+        movement = GetComponent<ShipMovement>();
+        combat = GetComponent<ShipCombat>();
+    }
+
+    void Update()
+    {
+        if (!isInitialized) return;
+
+        if (movement == null || combat == null)
+        {
+            Debug.LogWarning($"[Ship] {name} missing components at runtime. Movement: {(movement != null)}, Combat: {(combat != null)}");
+            return;
+        }
+
+        movement.Tick();
+        combat.Tick();
     }
 
     public void SetupShip(Transform target, bool isPlayer, PlayerResourceSystem player = null, EnemyResourceSystem enemy = null)
@@ -32,12 +54,52 @@ public class Ship : MonoBehaviour
         playerSystem = player;
         enemySystem = enemy;
 
+        Debug.Log($"[Ship] SetupShip called for {(isPlayer ? "Player" : "Enemy")}. Target: {targetPlanet?.name}");
+
         movement = GetComponent<ShipMovement>();
         combat = GetComponent<ShipCombat>();
 
+        stateMachine = gameObject.AddComponent<ShipStateMachine>();
+
+        if (movement == null)
+        {
+            Debug.LogError($"[Ship] MISSING ShipMovement on {name}! Did you forget to add it to the prefab?");
+        }
+        else
+        {
+            movement.Initialize(targetPlanet);
+            Debug.Log($"[Ship] Movement initialized for {name}, target = {targetPlanet?.name}");
+        }
+
+        if (combat == null)
+        {
+            Debug.LogError($"[Ship] MISSING ShipCombat on {name}! Did you forget to add it to the prefab?");
+        }
+        else
+        {
+            if (shipType != ShipType.Light && projectilePrefab == null)
+            {
+                Debug.LogError($"[Ship] MISSING projectilePrefab for {shipType} on {name}!");
+            }
+
+            combat.Initialize(this, projectilePrefab);
+            Debug.Log($"[Ship] Combat initialized for {name}. Projectile: {(projectilePrefab != null ? projectilePrefab.name : "None")}");
+        }
+
         SetShipStats();
-        movement.Initialize(targetPlanet);
-        combat.Initialize(this, projectilePrefab);
+
+        if (movement != null && movement.GetCurrentTarget() == null)
+        {
+            Debug.LogWarning($"[Ship] moveTarget was still null after init on {name}. Re-assigning to targetPlanet: {targetPlanet?.name}");
+            movement.SetMoveTarget(targetPlanet);
+        }
+
+        if (stateMachine != null)
+        {
+            stateMachine.SetState(ShipState.Moving);
+        }
+
+        isInitialized = true;
     }
 
     void SetShipStats()
@@ -48,12 +110,6 @@ public class Ship : MonoBehaviour
             case ShipType.Heavy: maxHP = currentHP = 150; fireCooldown = 1.5f; break;
             case ShipType.Drone: maxHP = currentHP = 100; fireCooldown = 2f; break;
         }
-    }
-
-    void Update()
-    {
-        movement.Tick();
-        combat.Tick();
     }
 
     public void TakeDamage(float amount)

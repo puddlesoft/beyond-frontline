@@ -2,8 +2,18 @@ using UnityEngine;
 
 public class EnemyAIController : MonoBehaviour
 {
+    [Header("Planet References")]
     public Transform enemyPlanet;
+    public Transform playerPlanet;
+
+    [Header("Enemy Subsystems")]
     public EnemyResourceSystem enemySystem;
+
+    [Header("Structure Prefabs")]
+    public GameObject lightShipyardPrefab;
+    public GameObject heavyShipyardPrefab;
+    public GameObject droneShipyardPrefab;
+    public GameObject defenseTurretPrefab;
 
     private float buildTimer = 0f;
     public float buildInterval = 10f;
@@ -26,27 +36,30 @@ public class EnemyAIController : MonoBehaviour
 
         float roll = Random.value;
         GameObject prefab = null;
-
+        if (roll > 0.0f)
+        {
+            prefab = droneShipyardPrefab;
+        }
         if (roll < 0.25f)
         {
-            prefab = Resources.Load<GameObject>("Buildings/LightShipyard");
+            prefab = lightShipyardPrefab;
         }
         else if (roll < 0.5f)
         {
-            prefab = Resources.Load<GameObject>("Buildings/HeavyShipyard");
+            prefab = heavyShipyardPrefab;
         }
         else if (roll < 0.75f)
         {
-            prefab = Resources.Load<GameObject>("Buildings/DroneShipyard");
+            prefab = droneShipyardPrefab;
         }
         else
         {
-            prefab = Resources.Load<GameObject>("Buildings/DefenseTurret");
+            prefab = defenseTurretPrefab;
         }
 
         if (prefab == null)
         {
-            Debug.LogWarning("Prefab not found for roll: " + roll);
+            Debug.LogWarning("Prefab not assigned for roll: " + roll);
             return;
         }
 
@@ -54,7 +67,7 @@ public class EnemyAIController : MonoBehaviour
 
         if (structure.TryGetComponent<Shipyard>(out var yard))
         {
-            yard.Initialize(null, enemySystem.GetTargetPlanet(), false, enemySystem);
+            yard.Initialize(null, playerPlanet, false, enemySystem);
         }
         else if (structure.TryGetComponent<DefenseTurret>(out var turret))
         {

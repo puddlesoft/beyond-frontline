@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 using System.Collections;
 
 public class ShipCombat : MonoBehaviour
@@ -6,45 +7,88 @@ public class ShipCombat : MonoBehaviour
     private Ship ship;
     private ShipMovement movement;
     private GameObject projectilePrefab;
+    private ShipStateMachine stateMachine;
+
 
     public float detectRange = 4f;
     public float attackRange = 2f;
     private Transform currentTarget;
     private bool isFiring;
+    private Transform lastCombatTarget;
+    private bool wasInAttackRangeLastTick = false;
 
     public void Initialize(Ship shipComponent, GameObject projectile)
     {
         ship = shipComponent;
         movement = GetComponent<ShipMovement>();
         projectilePrefab = projectile;
+        stateMachine = GetComponent<ShipStateMachine>();
     }
 
     public void Tick()
     {
-        if (currentTarget == null || Vector3.Distance(transform.position, currentTarget.position) > detectRange)
-            FindTarget();
+        if (stateMachine != null && stateMachine.currentState != ShipState.Attacking)
+        {
+            return;
+        }
 
-        if (currentTarget != null)
+        if (!IsTargetValid(currentTarget) || Vector3.Distance(transform.position, currentTarget.position) > detectRange)
+        {
+            FindTarget();
+        }
+
+        if (IsTargetValid(currentTarget))
         {
             float dist = Vector3.Distance(transform.position, currentTarget.position);
+
+            if (currentTarget != lastCombatTarget)
+            {
+                Debug.Log($"[ShipCombat] {gameObject.name} acquired target: {currentTarget.name}");
+                lastCombatTarget = currentTarget;
+            }
+
             if (dist > attackRange)
             {
+                wasInAttackRangeLastTick = false;
                 movement.SetMoveTarget(currentTarget);
             }
             else
             {
+                if (!wasInAttackRangeLastTick)
+                {
+                    Debug.Log($"[ShipCombat] {gameObject.name} is in attack range of {currentTarget.name}. Holding position to fire.");
+                    wasInAttackRangeLastTick = true;
+                }
+
                 movement.SetMoveTarget(transform);
-                if (!isFiring) StartCoroutine(FireAtTarget());
+
+                if (!isFiring)
+                {
+                    StartCoroutine(FireAtTarget());
+                }
             }
         }
         else
         {
+            wasInAttackRangeLastTick = false;
             movement.SetMoveTarget(ship.targetPlanet);
         }
+
     }
+
+    private bool IsTargetValid(Transform target)
+    {
+        return target != null && target.gameObject != null;
+    }
+
 
     void FindTarget()
     {
+        if (ship == null)
+        {
+            Debug.LogError($"[ShipCombat] Ship is NULL on {gameObject.name}, aborting FindTarget");
+            return;
+        }
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, detectRange);
         Transform closestTurret = null;
         Transform closestShip = null;
