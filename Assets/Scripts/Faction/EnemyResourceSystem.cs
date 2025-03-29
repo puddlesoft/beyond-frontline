@@ -30,6 +30,12 @@ public class EnemyResourceSystem : MonoBehaviour
         if (iron >= 30 && copper >= 30 && silicon >= 40) { iron -= 30; copper -= 30; silicon -= 40; circuits += 5; }
     }
 
+    public Transform GetTargetPlanet()
+    {
+        return targetPlanet;
+    }
+
+
     public void IncrementShipCount() => TotalShips++;
     public void DecrementShipCount() => TotalShips = Mathf.Max(0, TotalShips - 1);
 }

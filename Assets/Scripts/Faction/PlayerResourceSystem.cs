@@ -224,6 +224,31 @@ public class PlayerResourceSystem : MonoBehaviour
         TotalShips = Mathf.Max(0, TotalShips - 1);
     }
 
+    private int nextTypeIndex = 0;
+    private Shipyard.ShipyardType[] shipyardTypes = {
+        Shipyard.ShipyardType.Light,
+        Shipyard.ShipyardType.Heavy,
+        Shipyard.ShipyardType.Drone
+    };
+
+    public bool TryGetNextBuildableType(out Shipyard.ShipyardType type)
+    {
+        for (int i = 0; i < shipyardTypes.Length; i++)
+        {
+            var current = shipyardTypes[nextTypeIndex];
+            nextTypeIndex = (nextTypeIndex + 1) % shipyardTypes.Length;
+
+            if (CanAffordShip(current))
+            {
+                type = current;
+                return true;
+            }
+        }
+
+        type = Shipyard.ShipyardType.Light; // default fallback
+        return false;
+    }
+
 
 
 

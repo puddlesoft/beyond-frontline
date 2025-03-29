@@ -35,25 +35,25 @@ public class Shipyard : MonoBehaviour
         buildTimer -= Time.deltaTime;
         if (buildTimer > 0f) return;
 
-        if (isPlayer)
+        if (isPlayer && playerSystem != null)
         {
-            if (playerSystem != null && playerSystem.CanAffordShip(shipyardType))
+            // Keep trying until this shipyard's type is selected
+            for (int i = 0; i < 3; i++)
             {
-                playerSystem.PayForShip(shipyardType);
-                SpawnShip(true);
-                buildTimer = buildInterval;
-            }
-        }
-        else
-        {
-            if (enemySystem != null && CanEnemyAfford())
-            {
-                PayEnemyCost();
-                SpawnShip(false);
-                buildTimer = buildInterval;
+                if (playerSystem.TryGetNextBuildableType(out ShipyardType nextType))
+                {
+                    if (nextType == shipyardType && playerSystem.CanAffordShip(shipyardType))
+                    {
+                        playerSystem.PayForShip(shipyardType);
+                        SpawnShip(true);
+                        buildTimer = buildInterval;
+                        break;
+                    }
+                }
             }
         }
     }
+
 
     void SpawnShip(bool isPlayerShip)
     {

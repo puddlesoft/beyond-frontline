@@ -2,8 +2,6 @@ using UnityEngine;
 
 public class EnemyAIController : MonoBehaviour
 {
-    public GameObject lightShipyardPrefab;
-    public GameObject defenseTurretPrefab;
     public Transform enemyPlanet;
     public EnemyResourceSystem enemySystem;
 
@@ -26,16 +24,41 @@ public class EnemyAIController : MonoBehaviour
         Vector3 offset = Random.insideUnitCircle.normalized * Random.Range(1.5f, 3.5f);
         Vector3 spawnPos = enemyPlanet.position + offset;
 
-        GameObject structure;
-        if (Random.value > 0.5f)
+        float roll = Random.value;
+        GameObject prefab = null;
+
+        if (roll < 0.25f)
         {
-            structure = Instantiate(lightShipyardPrefab, spawnPos, Quaternion.identity);
-            structure.GetComponent<Shipyard>().Initialize(null, enemySystem.targetPlanet, false, enemySystem);
+            prefab = Resources.Load<GameObject>("Buildings/LightShipyard");
+        }
+        else if (roll < 0.5f)
+        {
+            prefab = Resources.Load<GameObject>("Buildings/HeavyShipyard");
+        }
+        else if (roll < 0.75f)
+        {
+            prefab = Resources.Load<GameObject>("Buildings/DroneShipyard");
         }
         else
         {
-            structure = Instantiate(defenseTurretPrefab, spawnPos, Quaternion.identity);
-            structure.GetComponent<DefenseTurret>().isPlayerTurret = false;
+            prefab = Resources.Load<GameObject>("Buildings/DefenseTurret");
+        }
+
+        if (prefab == null)
+        {
+            Debug.LogWarning("Prefab not found for roll: " + roll);
+            return;
+        }
+
+        GameObject structure = Instantiate(prefab, spawnPos, Quaternion.identity);
+
+        if (structure.TryGetComponent<Shipyard>(out var yard))
+        {
+            yard.Initialize(null, enemySystem.GetTargetPlanet(), false, enemySystem);
+        }
+        else if (structure.TryGetComponent<DefenseTurret>(out var turret))
+        {
+            turret.isPlayerTurret = false;
         }
     }
 }
