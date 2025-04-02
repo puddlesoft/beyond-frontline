@@ -1,35 +1,51 @@
 using UnityEngine;
 
-public class EnemyResourceSystem : MonoBehaviour
+public class EnemyResourceSystem : BaseResourceSystem
 {
     public Transform targetPlanet;
-    public float iron, energy, copper, silicon;
-    public float ironRate = 10f, energyRate = 5f, copperRate = 3f, siliconRate = 2f;
+    public ShipProductionManager productionManager;
 
-    public int metalTubes, wiring, circuits;
-    public int TotalShips { get; private set; }
+    public override Transform GetTargetPlanet() => targetPlanet;
 
-    public void Tick()
+    public override void RegisterShipyard(Shipyard yard)
     {
-        GenerateResources();
-        ManufactureComponents();
+        productionManager.RegisterShipyard(yard.GetShipyardType(), yard);
+        CountShipyard(yard.GetShipyardType());
+
     }
 
-    void GenerateResources()
+    public override void EnqueueShipBuild(Shipyard yard)
     {
-        iron += ironRate * Time.deltaTime;
-        energy += energyRate * Time.deltaTime;
-        copper += copperRate * Time.deltaTime;
-        silicon += siliconRate * Time.deltaTime;
+        productionManager.EnqueueBuild(yard.GetShipyardType(), yard);
     }
 
-    void ManufactureComponents()
+    public override void PayForShip(Shipyard.ShipyardType type)
     {
-        if (iron >= 100 && energy >= 50) { iron -= 100; energy -= 50; metalTubes += 10; }
-        if (copper >= 50 && silicon >= 20) { copper -= 50; silicon -= 20; wiring += 10; }
-        if (iron >= 30 && copper >= 30 && silicon >= 40) { iron -= 30; copper -= 30; silicon -= 40; circuits += 5; }
+        switch (type)
+        {
+            case Shipyard.ShipyardType.Light:
+                metalTubes -= 5;
+                wiring -= 2;
+                break;
+            case Shipyard.ShipyardType.Heavy:
+                metalTubes -= 10;
+                circuits -= 5;
+                break;
+            case Shipyard.ShipyardType.Drone:
+                wiring -= 4;
+                circuits -= 4;
+                break;
+        }
     }
 
-    public void IncrementShipCount() => TotalShips++;
-    public void DecrementShipCount() => TotalShips = Mathf.Max(0, TotalShips - 1);
+    public override bool CanAffordShip(Shipyard.ShipyardType type)
+    {
+        return type switch
+        {
+            Shipyard.ShipyardType.Light => metalTubes >= 5 && wiring >= 2,
+            Shipyard.ShipyardType.Heavy => metalTubes >= 10 && circuits >= 5,
+            Shipyard.ShipyardType.Drone => wiring >= 4 && circuits >= 4,
+            _ => false
+        };
+    }
 }

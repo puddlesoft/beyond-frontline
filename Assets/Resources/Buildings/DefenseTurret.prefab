@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 4248126999911934211}
   - component: {fileID: 5482248968440692799}
   m_Layer: 0
-  m_Name: DefenseStructure
+  m_Name: DefenseTurret
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -127,6 +127,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   health: 300
+  isPlayerTurret: 1
 --- !u!1 &7476736920622116439
 GameObject:
   m_ObjectHideFlags: 0
