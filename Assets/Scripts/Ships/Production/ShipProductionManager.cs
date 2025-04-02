@@ -33,6 +33,12 @@ public class ShipProductionManager : MonoBehaviour
 
     private void ProcessBuildQueue(BaseResourceSystem system, bool isPlayer)
     {
+        if (system == null)
+        {
+            Debug.LogError($"[ShipProductionManager] {(isPlayer ? "Player" : "Enemy")} system is null!");
+            return;
+        }
+
         int buildsThisFrame = 0;
 
         int queueSize = buildQueue.Count;
@@ -43,13 +49,24 @@ public class ShipProductionManager : MonoBehaviour
 
             if (yard == null) continue;
 
-            bool canAfford = isPlayer
-                ? yard.CanPlayerAfford((PlayerResourceSystem)system)
-                : yard.CanEnemyAfford((EnemyResourceSystem)system);
+            bool canAfford = false;
+            if (isPlayer && system is PlayerResourceSystem playerSystem)
+            {
+                canAfford = yard.CanPlayerAfford(playerSystem);
+            }
+            else if (!isPlayer && system is EnemyResourceSystem enemySystem)
+            {
+                canAfford = yard.CanEnemyAfford(enemySystem);
+            }
+            else
+            {
+                Debug.LogError($"[ShipProductionManager] Invalid system type for {(isPlayer ? "Player" : "Enemy")} shipyard!");
+                continue;
+            }
 
             if (canAfford)
             {
-                yard.SpawnShip(isPlayer);
+                yard.SpawnShip(yard.isPlayer);
                 buildsThisFrame++;
             }
             else

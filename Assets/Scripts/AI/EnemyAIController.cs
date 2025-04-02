@@ -31,6 +31,12 @@ public class EnemyAIController : MonoBehaviour
 
     void TryBuildStructure()
     {
+        if (enemySystem == null)
+        {
+            Debug.LogError("[EnemyAIController] Enemy system is null, cannot build structures!");
+            return;
+        }
+
         Vector3 offset = Random.insideUnitCircle.normalized * Random.Range(1.5f, 3.5f);
         Vector3 spawnPos = enemyPlanet.position + offset;
 
@@ -67,7 +73,16 @@ public class EnemyAIController : MonoBehaviour
 
         if (structure.TryGetComponent<Shipyard>(out var yard))
         {
+            // Ensure we have a valid player planet to target
+            if (playerPlanet == null)
+            {
+                Debug.LogError("[EnemyAIController] Player planet is null, cannot initialize shipyard!");
+                Destroy(structure);
+                return;
+            }
+
             yard.Initialize(null, playerPlanet, false, enemySystem);
+            Debug.Log($"[EnemyAIController] Initialized new {yard.GetShipyardType()} shipyard at {spawnPos}");
         }
         else if (structure.TryGetComponent<DefenseTurret>(out var turret))
         {

@@ -121,7 +121,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shipyardType: 0
-  buildInterval: 5
   shipPrefab: {fileID: 9096943611140008174, guid: bd70cb113632ace45b3463302a3a2b62, type: 3}
   targetPlanet: {fileID: 0}
 --- !u!1 &8978261971653487091

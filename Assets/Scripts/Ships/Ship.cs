@@ -22,84 +22,124 @@ public class Ship : MonoBehaviour
     private ShipStateMachine stateMachine;
     private bool isInitialized = false;
 
-    public void SetEnemySystem(EnemyResourceSystem system)
+    void Awake()
     {
-        enemySystem = system;
+        // Add required components if they don't exist
+        if (movement == null)
+        {
+            movement = gameObject.AddComponent<ShipMovement>();
+        }
+
+        if (combat == null)
+        {
+            combat = gameObject.AddComponent<ShipCombat>();
+        }
+
+        if (stateMachine == null)
+        {
+            stateMachine = gameObject.AddComponent<ShipStateMachine>();
+        }
     }
 
     void Start()
     {
-        movement = GetComponent<ShipMovement>();
-        combat = GetComponent<ShipCombat>();
+        // Verify components exist
+        if (movement == null || combat == null || stateMachine == null)
+        {
+            Debug.LogError($"[Ship] {name} missing required components in Start");
+        }
     }
 
     void Update()
     {
-        if (!isInitialized) return;
-
-        if (movement == null || combat == null)
+        if (!isInitialized)
         {
-            Debug.LogWarning($"[Ship] {name} missing components at runtime. Movement: {(movement != null)}, Combat: {(combat != null)}");
             return;
         }
 
-        movement.Tick();
+        if (movement == null || combat == null)
+        {
+            Debug.LogWarning($"[Ship] {name} missing components at runtime");
+            return;
+        }
+
+        // Update combat first to calculate new positions
         combat.Tick();
+        // Then update movement to apply those positions
+        movement.Tick();
     }
 
     public void SetupShip(Transform target, bool isPlayer, PlayerResourceSystem player = null, EnemyResourceSystem enemy = null)
     {
+        if (isInitialized)
+        {
+            Debug.LogWarning($"[Ship] {name} already initialized, skipping");
+            return;
+        }
+
         targetPlanet = target;
         isPlayerShip = isPlayer;
         playerSystem = player;
         enemySystem = enemy;
 
-        Debug.Log($"[Ship] SetupShip called for {(isPlayer ? "Player" : "Enemy")}. Target: {targetPlanet?.name}");
-
-        movement = GetComponent<ShipMovement>();
-        combat = GetComponent<ShipCombat>();
-
-        stateMachine = gameObject.AddComponent<ShipStateMachine>();
-
-        if (movement == null)
+        // For enemy ships, find the nearest player planet if no target is specified
+        if (!isPlayer && targetPlanet == null)
         {
-            Debug.LogError($"[Ship] MISSING ShipMovement on {name}! Did you forget to add it to the prefab?");
-        }
-        else
-        {
-            movement.Initialize(targetPlanet);
-            Debug.Log($"[Ship] Movement initialized for {name}, target = {targetPlanet?.name}");
-        }
-
-        if (combat == null)
-        {
-            Debug.LogError($"[Ship] MISSING ShipCombat on {name}! Did you forget to add it to the prefab?");
-        }
-        else
-        {
-            if (shipType != ShipType.Light && projectilePrefab == null)
+            targetPlanet = FindNearestPlayerPlanet();
+            if (targetPlanet == null)
             {
-                Debug.LogError($"[Ship] MISSING projectilePrefab for {shipType} on {name}!");
+                Debug.LogError($"[Ship] Could not find target planet for enemy ship {name}!");
+                return;
             }
-
-            combat.Initialize(this, projectilePrefab);
-            Debug.Log($"[Ship] Combat initialized for {name}. Projectile: {(projectilePrefab != null ? projectilePrefab.name : "None")}");
         }
 
+        // Initialize components in correct order
         SetShipStats();
-
-        if (movement != null && movement.GetCurrentTarget() == null)
-        {
-            Debug.LogWarning($"[Ship] moveTarget was still null after init on {name}. Re-assigning to targetPlanet: {targetPlanet?.name}");
-            movement.SetMoveTarget(targetPlanet);
-        }
-
-        if (stateMachine != null)
-        {
-            stateMachine.SetState(ShipState.Moving);
-        }
-
+        
+        // Initialize state machine first since other components might need it
+        stateMachine.Initialize();
+        
+        // Initialize combat since it needs the ship reference
+        combat.Initialize(this, projectilePrefab);
+        
+        // Then initialize movement with the target planet
+        movement.Initialize(targetPlanet);
+        
+        // Finally set the initial state
+        stateMachine.SetState(ShipState.Moving);
+        
         isInitialized = true;
+        Debug.Log($"[Ship] {name} initialized as {(isPlayer ? "Player" : "Enemy")} ship, targeting {targetPlanet.name}");
+    }
+
+    private Transform FindNearestPlayerPlanet()
+    {
+        Transform nearest = null;
+        float nearestDist = Mathf.Infinity;
+
+        // Find all planets in the scene
+        var planets = GameObject.FindGameObjectsWithTag("Planet");
+        foreach (var planet in planets)
+        {
+            // Check if it's a player planet
+            var planetComponent = planet.GetComponent<Planet>();
+            if (planetComponent != null && planetComponent.IsPlayerPlanet())
+            {
+                float dist = Vector3.Distance(transform.position, planet.transform.position);
+                if (dist < nearestDist)
+                {
+                    nearest = planet.transform;
+                    nearestDist = dist;
+                }
+            }
+        }
+
+        if (nearest == null)
+        {
+            Debug.LogError($"[Ship] No player planets found for enemy ship {name} to target!");
+        }
+
+        return nearest;
     }
 
     void SetShipStats()
@@ -120,7 +160,11 @@ public class Ship : MonoBehaviour
             if (isPlayerShip) playerSystem?.DecrementShipCount();
             else enemySystem?.DecrementShipCount();
 
-            Destroy(gameObject);
+            if (stateMachine != null)
+            {
+                stateMachine.SetState(ShipState.Dead);
+            }
+            Destroy(gameObject, 0.1f); // Small delay to allow state change to process
         }
     }
 

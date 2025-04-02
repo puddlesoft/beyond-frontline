@@ -10,7 +10,7 @@ public class Shipyard : MonoBehaviour
 
     private PlayerResourceSystem playerSystem;
     private EnemyResourceSystem enemySystem;
-    private bool isPlayer = true;
+    public bool isPlayer { get; private set; } = true;
 
     private float buildCooldown = 5f;
     private float buildTimer = 0f;
@@ -45,7 +45,16 @@ public class Shipyard : MonoBehaviour
         enemySystem = enemy;
         isPlayer = isPlayerShip;
 
-        Debug.Log($"[Shipyard] Initializing {(isPlayer ? "Player" : "Enemy")} yard. TargetPlanet: {enemyPlanet?.name}");
+        // If we're an enemy shipyard and don't have a target, find the nearest player planet
+        if (!isPlayer && targetPlanet == null)
+        {
+            targetPlanet = FindNearestPlayerPlanet();
+            if (targetPlanet == null)
+            {
+                Debug.LogError($"[Shipyard] Could not find a player planet for enemy shipyard to target!");
+                return;
+            }
+        }
 
         if (isPlayer && playerSystem != null)
         {
@@ -57,7 +66,7 @@ public class Shipyard : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning($"[Shipyard] Missing system during init. Player: {playerSystem != null}, Enemy: {enemySystem != null}");
+            Debug.LogError($"[Shipyard] Missing system during init. Player: {playerSystem != null}, Enemy: {enemySystem != null}");
         }
     }
     public bool CanPlayerAfford(PlayerResourceSystem system)
@@ -105,29 +114,75 @@ public class Shipyard : MonoBehaviour
             return;
         }
 
-        if (targetPlanet == null)
+        Transform target = targetPlanet;
+        if (!isPlayer && target == null)
         {
-            Debug.LogError($"[Shipyard] targetPlanet is NULL for {(isPlayer ? "player" : "enemy")} shipyard!");
+            target = FindNearestPlayerPlanet();
+            if (target == null)
+            {
+                Debug.LogError($"[Shipyard] Could not find a player planet for enemy ship to target!");
+                return;
+            }
         }
-
-        Debug.Log($"[Shipyard] Spawning ship from {(isPlayer ? "player" : "enemy")} shipyard at {transform.position}");
 
         if (isPlayer && playerSystem != null)
         {
             playerSystem.PayForShip(shipyardType);
-            shipComponent.SetupShip(targetPlanet, true, playerSystem, null);
+            shipComponent.SetupShip(target, true, playerSystem, null);
             playerSystem.IncrementShipCount();
         }
         else if (!isPlayer && enemySystem != null)
         {
             enemySystem.PayForShip(shipyardType);
-            shipComponent.SetupShip(targetPlanet, false, null, enemySystem);
+            shipComponent.SetupShip(target, false, null, enemySystem);
             enemySystem.IncrementShipCount();
+        }
+        else
+        {
+            Debug.LogError($"[Shipyard] Missing system during ship spawn. Player: {playerSystem != null}, Enemy: {enemySystem != null}");
+            return;
+        }
+
+        // Update debug state for the new ship
+        var gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+        if (gameManager != null)
+        {
+            var shipCombat = ship.GetComponent<ShipCombat>();
+            if (shipCombat != null)
+            {
+                shipCombat.showDebug = gameManager.showShipDebug;
+                Debug.Log($"[Shipyard] Updated debug state for {ship.name}: {gameManager.showShipDebug}");
+            }
         }
     }
 
+    private Transform FindNearestPlayerPlanet()
+    {
+        Transform nearest = null;
+        float nearestDist = Mathf.Infinity;
 
+        // Find all planets in the scene
+        var planets = GameObject.FindGameObjectsWithTag("Planet");
+        foreach (var planet in planets)
+        {
+            // Check if it's a player planet
+            var planetComponent = planet.GetComponent<Planet>();
+            if (planetComponent != null && planetComponent.IsPlayerPlanet())
+            {
+                float dist = Vector3.Distance(transform.position, planet.transform.position);
+                if (dist < nearestDist)
+                {
+                    nearest = planet.transform;
+                    nearestDist = dist;
+                }
+            }
+        }
 
+        if (nearest == null)
+        {
+            Debug.LogError($"[Shipyard] No player planets found for enemy ship to target!");
+        }
 
-
+        return nearest;
+    }
 }
